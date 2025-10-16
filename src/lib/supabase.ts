@@ -24,7 +24,7 @@ export interface UserConversation {
   user_email: string
   user_ip: string
   consent_given: boolean
-  conversation_data: any
+  conversation_data: Record<string, string>
   recommended_card_name?: string
   recommendation_reason?: string
   created_at?: string

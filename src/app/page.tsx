@@ -144,7 +144,7 @@ export default function Home() {
     // Show final message and move to thank you
     setMessages(prev => [...prev, { 
       role: 'bot', 
-              text: `✅ Perfect! I've analyzed your needs and found the ideal credit card for you.\n\n📧 I've sent a detailed recommendation with the card details and application link to ${userEmail}.\n\nPlease check your email (including spam folder) for the full recommendation!`  
+              text: `✅ Perfect! I&apos;ve analyzed your needs and found the ideal credit card for you.\n\n📧 I&apos;ve sent a detailed recommendation with the card details and application link to ${userEmail}.\n\nPlease check your email (including spam folder) for the full recommendation!`  
     }])
 
     // Move to thank you screen after 2 seconds
