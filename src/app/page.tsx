@@ -10,7 +10,7 @@ export default function Home() {
   const [consent, setConsent] = useState(false)
   const [messages, setMessages] = useState<Array<{role: 'bot' | 'user', text: string}>>([])
   const [currentInput, setCurrentInput] = useState('')
-  const [conversationData, setConversationData] = useState<any>({})
+  const [conversationData, setConversationData] = useState<Record<string, string>>({})
   const [currentQuestion, setCurrentQuestion] = useState(0)
   const [showPrivacy, setShowPrivacy] = useState(false)
 
@@ -49,7 +49,7 @@ export default function Home() {
     setCurrentQuestion(0)
     setMessages([
       { role: 'bot', text: `Hi ${userName}, my name is Sai - your AI assistant. How are you doing today? 😊` },
-      { role: 'bot', text: `I'm here to help you find the perfect credit card! What card do you have in mind, or are you exploring options?` }
+      { role: 'bot', text: `                      I&apos;m here to help you find the perfect credit card! What card do you have in mind, or are you exploring options?` }
     ])
   }
 
@@ -105,7 +105,7 @@ export default function Home() {
     }
   }
 
-  const processRecommendation = async (data: any) => {
+  const processRecommendation = async (data: Record<string, string>) => {
     // Show processing message
     setMessages(prev => [...prev, { 
       role: 'bot', 
@@ -144,7 +144,7 @@ export default function Home() {
     // Show final message and move to thank you
     setMessages(prev => [...prev, { 
       role: 'bot', 
-      text: `✅ Perfect! I've analyzed your needs and found the ideal credit card for you.\n\n📧 I've sent a detailed recommendation with the card details and application link to ${userEmail}.\n\nPlease check your email (including spam folder) for the full recommendation!` 
+              text: `✅ Perfect! I've analyzed your needs and found the ideal credit card for you.\n\n📧 I've sent a detailed recommendation with the card details and application link to ${userEmail}.\n\nPlease check your email (including spam folder) for the full recommendation!`  
     }])
 
     // Move to thank you screen after 2 seconds
@@ -385,7 +385,7 @@ export default function Home() {
               </p>
               <div className="bg-teal-50 border border-teal-200 rounded-lg p-6 mb-8">
                 <p className="text-[#1565C0]">
-                  📧 We've sent your personalized credit card recommendation to <strong>{userEmail}</strong>
+                  📧 We&apos;ve sent your personalized credit card recommendation to <strong>{userEmail}</strong>
                 </p>
                 <p className="text-sm text-[#1565C0] mt-2">
                   Please check your inbox (and spam folder) for the full details and application link.
