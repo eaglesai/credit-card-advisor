@@ -252,7 +252,7 @@ export default function Home() {
           <div className="max-w-2xl mx-auto">
             <div className="bg-white rounded-xl shadow-xl p-8 border border-gray-200">
               <h2 className="text-3xl font-bold text-blue-900 mb-6">
-                Let's Get Started
+                Lets Get Started
               </h2>
               
               <form onSubmit={handleConsentSubmit} className="space-y-6">
