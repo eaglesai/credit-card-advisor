@@ -175,7 +175,7 @@ export default function Home() {
             <div className="w-10 h-10 bg-blue-900 rounded-lg flex items-center justify-center">
               <span className="text-white text-xl font-bold">💳</span>
             </div>
-            <h1 className="text-2xl font-bold text-blue-900">Credit Card Advisor</h1>
+            <h1 className="text-2xl font-bold text-blue-900">Credit Card Advisor Info</h1>
           </div>
           <nav className="text-sm text-[#1565C0] font-medium">
             <button className="hover:text-teal-500 transition">About</button>
@@ -381,7 +381,7 @@ export default function Home() {
                 Recommendation Sent!
               </h2>
               <p className="text-lg text-[#1565C0] mb-6">
-                Thank you for using Credit Card Advisor, {userName}!
+                Thank you for using Credit Card Advisor Info, {userName}!
               </p>
               <div className="bg-teal-50 border border-teal-200 rounded-lg p-6 mb-8">
                 <p className="text-[#1565C0]">
@@ -405,7 +405,7 @@ export default function Home() {
       {/* Footer */}
       <footer className="relative text-center py-8 text-sm text-[#1565C0] border-t border-gray-200 mt-12">
         <p>
-          © 2025 Credit Card Advisor | Educational purposes only | Not financial advice
+          © 2025 Credit Card Advisor Info | Educational purposes only | Not financial advice
         </p>
       </footer>
     </div>
