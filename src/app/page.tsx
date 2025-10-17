@@ -13,9 +13,81 @@ export default function Home() {
   const [conversationData, setConversationData] = useState<Record<string, string>>({})
   const [currentQuestion, setCurrentQuestion] = useState(0)
   const [showPrivacy, setShowPrivacy] = useState(false)
+  const [retryCount, setRetryCount] = useState(0)
+  const [exitReason, setExitReason] = useState<'inappropriate' | 'invalid_response' | 'completed' | ''>('')
+
+  // Blocked/Censored words list
+  const BLOCKED_WORDS = [
+    'fuck', 'shit', 'damn', 'hell', 'ass', 'bitch', 'bastard',
+    'idiot', 'stupid', 'dumb', 'moron', 'hate', 'kill',
+    // Add more as needed
+  ]
 
   // Get user IP (simplified - in production use a proper API)
   const getUserIP = () => '0.0.0.0' // Placeholder
+
+  // Check for blocked/inappropriate content
+  const containsBlockedContent = (text: string): boolean => {
+    const lowerText = text.toLowerCase()
+    return BLOCKED_WORDS.some(word => {
+      const regex = new RegExp(`\\b${word}\\b`, 'i')
+      return regex.test(lowerText)
+    })
+  }
+
+  // Validate if response is relevant to the question
+  const isRelevantResponse = (response: string, questionNumber: number): boolean => {
+    const trimmed = response.trim().toLowerCase()
+    
+    // Check for obviously invalid responses
+    const invalidPatterns = [
+      /^(none|n\/a|na|nothing|idk|i don'?t know|whatever|anything|something)$/i,
+      /^(that'?s? not your (problem|business|concern))$/i,
+      /^(why do you (need|want) to know)$/i,
+      /^(mind your own business)$/i,
+      /^(no|nope|nah)$/i,
+      /^(yes|yep|yeah)$/i,
+    ]
+
+    // If response is too short (less than 2 characters), it's invalid
+    if (trimmed.length < 2) return false
+
+    // Check against invalid patterns
+    for (const pattern of invalidPatterns) {
+      if (pattern.test(trimmed)) return false
+    }
+
+    // Question-specific validation
+    switch (questionNumber) {
+      case 1: // Spending category
+        // Should mention at least one category keyword
+        const categoryKeywords = ['grocery', 'groceries', 'gas', 'fuel', 'travel', 'dining', 'food', 'restaurant', 'general', 'everything', 'all']
+        return categoryKeywords.some(keyword => trimmed.includes(keyword))
+      
+      case 2: // Annual income
+        // Should contain numbers or income-related terms
+        return /\d|income|salary|earn|dollar|k\b|thousand|million/i.test(trimmed)
+      
+      case 3: // Payment behavior
+        const paymentKeywords = ['full', 'balance', 'yes', 'no', 'sometimes', 'always', 'never', 'carry', 'pay']
+        return paymentKeywords.some(keyword => trimmed.includes(keyword))
+      
+      case 4: // Reward preference
+        const rewardKeywords = ['cashback', 'cash', 'travel', 'points', 'miles', 'rewards', 'benefit']
+        return rewardKeywords.some(keyword => trimmed.includes(keyword))
+      
+      case 5: // Fee preference
+        const feeKeywords = ['no', 'yes', 'free', 'fee', 'willing', 'pay', 'premium', 'annual', 'accept']
+        return feeKeywords.some(keyword => trimmed.includes(keyword))
+      
+      case 6: // Bonus importance
+        const bonusKeywords = ['important', 'very', 'not', 'somewhat', 'bonus', 'signup', 'welcome']
+        return bonusKeywords.some(keyword => trimmed.includes(keyword))
+      
+      default:
+        return true // For first question (what card in mind), accept any response
+    }
+  }
 
   const handleStartChat = () => {
     setStep('consent')
@@ -47,9 +119,10 @@ export default function Home() {
 
     setStep('chat')
     setCurrentQuestion(0)
+    setRetryCount(0)
     setMessages([
       { role: 'bot', text: `Hi ${userName}, my name is Sai - your AI assistant. How are you doing today? 😊` },
-      { role: 'bot', text: `                      I&apos;m here to help you find the perfect credit card! What card do you have in mind, or are you exploring options?` }
+      { role: 'bot', text: `I&apos;m here to help you find the perfect credit card! What card do you have in mind, or are you exploring options?` }
     ])
   }
 
@@ -65,6 +138,32 @@ export default function Home() {
     return questions[questionNum] || null
   }
 
+  const redirectToThankYou = (reason: 'inappropriate' | 'invalid_response') => {
+    setExitReason(reason)
+    
+    const exitMessages = {
+      inappropriate: "I appreciate your interest, but I need to maintain a respectful conversation. Thank you for visiting!",
+      invalid_response: "I understand this might not be the right time. Feel free to come back when you're ready to explore credit card options. Thank you for your time!"
+    }
+    
+    setMessages(prev => [...prev, { 
+      role: 'bot', 
+      text: exitMessages[reason]
+    }])
+
+    // Save exit reason to database
+    supabase
+      .from('user_conversations')
+      .update({
+        conversation_data: { ...conversationData, exit_reason: reason },
+      })
+      .eq('user_email', userEmail)
+
+    setTimeout(() => {
+      setStep('thankyou')
+    }, 2000)
+  }
+
   const handleSendMessage = async () => {
     if (!currentInput.trim()) return
 
@@ -72,6 +171,37 @@ export default function Home() {
     const newMessages = [...messages, { role: 'user' as const, text: userMessage }]
     setMessages(newMessages)
     setCurrentInput('')
+
+    // TASK 1: Check for blocked/inappropriate content
+    if (containsBlockedContent(userMessage)) {
+      redirectToThankYou('inappropriate')
+      return
+    }
+
+    // TASK 2: Validate response relevance (skip for first question)
+    if (currentQuestion > 0 && !isRelevantResponse(userMessage, currentQuestion)) {
+      if (retryCount === 0) {
+        // First invalid attempt - give one more chance
+        setRetryCount(1)
+        setTimeout(() => {
+          setMessages([...newMessages, { 
+            role: 'bot', 
+            text: "I apologize, but I didn't quite understand that response. Could you please provide a more specific answer to help me find the best card for you? Let's try again:" 
+          }, {
+            role: 'bot',
+            text: getNextQuestion(currentQuestion - 1) || "Could you clarify your previous answer?"
+          }])
+        }, 500)
+        return
+      } else {
+        // Second invalid attempt - redirect to thank you
+        redirectToThankYou('invalid_response')
+        return
+      }
+    }
+
+    // Reset retry count on successful response
+    setRetryCount(0)
 
     // Store the answer
     const questionKeys = [
@@ -101,6 +231,7 @@ export default function Home() {
       }
     } else {
       // All questions answered - process recommendation
+      setExitReason('completed')
       await processRecommendation(updatedData)
     }
   }
@@ -135,7 +266,6 @@ export default function Home() {
     }
 
     // TODO: Send email via Resend API (we'll add this later)
-    // For now, just simulate email sent
     console.log('Email would be sent to:', userEmail)
     console.log('Card:', recommendedCard)
     console.log('Reason:', reason)
@@ -144,7 +274,7 @@ export default function Home() {
     // Show final message and move to thank you
     setMessages(prev => [...prev, { 
       role: 'bot', 
-              text: `✅ Perfect! I&apos;ve analyzed your needs and found the ideal credit card for you.\n\n📧 I&apos;ve sent a detailed recommendation with the card details and application link to ${userEmail}.\n\nPlease check your email (including spam folder) for the full recommendation!`  
+      text: `✅ Perfect! I&apos;ve analyzed your needs and found the ideal credit card for you.\n\n📧 I&apos;ve sent a detailed recommendation with the card details and application link to ${userEmail}.\n\nPlease check your email (including spam folder) for the full recommendation!` 
     }])
 
     // Move to thank you screen after 2 seconds
@@ -252,7 +382,7 @@ export default function Home() {
           <div className="max-w-2xl mx-auto">
             <div className="bg-white rounded-xl shadow-xl p-8 border border-gray-200">
               <h2 className="text-3xl font-bold text-blue-900 mb-6">
-                Lets Get Started
+                Let&apos;s Get Started
               </h2>
               
               <form onSubmit={handleConsentSubmit} className="space-y-6">
@@ -376,26 +506,36 @@ export default function Home() {
         {step === 'thankyou' && (
           <div className="max-w-2xl mx-auto text-center">
             <div className="bg-white rounded-xl shadow-xl p-12 border border-gray-200">
-              <div className="text-6xl mb-6">✅</div>
+              <div className="text-6xl mb-6">
+                {exitReason === 'completed' ? '✅' : '👋'}
+              </div>
               <h2 className="text-3xl font-bold text-blue-900 mb-4">
-                Recommendation Sent!
+                {exitReason === 'completed' 
+                  ? 'Recommendation Sent!' 
+                  : 'Thank You for Visiting!'}
               </h2>
               <p className="text-lg text-[#1565C0] mb-6">
-                Thank you for using Credit Card Advisor Info, {userName}!
+                {exitReason === 'completed'
+                  ? `Thank you for using Credit Card Advisor Info, ${userName}!`
+                  : `We appreciate your time, ${userName}!`}
               </p>
-              <div className="bg-teal-50 border border-teal-200 rounded-lg p-6 mb-8">
-                <p className="text-[#1565C0]">
-                  📧 We&apos;ve sent your personalized credit card recommendation to <strong>{userEmail}</strong>
-                </p>
-                <p className="text-sm text-[#1565C0] mt-2">
-                  Please check your inbox (and spam folder) for the full details and application link.
-                </p>
-              </div>
+              {exitReason === 'completed' && (
+                <div className="bg-teal-50 border border-teal-200 rounded-lg p-6 mb-8">
+                  <p className="text-[#1565C0]">
+                    📧 We&apos;ve sent your personalized credit card recommendation to <strong>{userEmail}</strong>
+                  </p>
+                  <p className="text-sm text-[#1565C0] mt-2">
+                    Please check your inbox (and spam folder) for the full details and application link.
+                  </p>
+                </div>
+              )}
               <button
                 onClick={() => window.location.reload()}
                 className="bg-blue-900 hover:bg-blue-800 text-white px-8 py-3 rounded-lg font-semibold transition-all transform hover:scale-105"
               >
-                Help Someone Else Find Their Card
+                {exitReason === 'completed' 
+                  ? 'Help Someone Else Find Their Card'
+                  : 'Start Over'}
               </button>
             </div>
           </div>
