@@ -240,47 +240,72 @@ export default function Home() {
     // Show processing message
     setMessages(prev => [...prev, { 
       role: 'bot', 
-      text: '🤔 Analyzing your responses and finding the best match for you...' 
+      text: '🤔 Analyzing your responses with AI and finding the best match for you...' 
     }])
 
-    // Simulate AI processing (will be replaced with actual AI later)
-    await new Promise(resolve => setTimeout(resolve, 2000))
-
-    // Simple recommendation logic (will be replaced with Claude/OpenAI API)
-    const recommendedCard = 'Rogers World Elite Mastercard'
-    const reason = `Based on your responses, the Rogers World Elite Mastercard is an excellent match for you. It offers 1.5% cashback on all purchases, 4% on Rogers/Fido bills, with no annual fee. This aligns perfectly with your spending habits and income level.`
-    const applyUrl = 'https://www.rogersbank.com/en/rogers_credit_cards/rogers_world_elite_mastercard'
-
-    // Save to database
-    const { error } = await supabase
-      .from('user_conversations')
-      .update({
-        conversation_data: data,
-        recommended_card_name: recommendedCard,
-        recommendation_reason: reason
+    try {
+      // Call our API route which calls Claude
+      const response = await fetch('/api/recommend', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          conversationData: data,
+          userName: userName
+        })
       })
-      .eq('user_email', userEmail)
 
-    if (error) {
-      console.error('Error saving recommendation:', error)
+      const result = await response.json()
+      const recommendation = result.recommendation
+
+      const recommendedCard = recommendation.cardName
+      const issuer = recommendation.issuer
+      const reason = recommendation.reason
+      const benefits = recommendation.keyBenefits.join(', ')
+      const applyUrl = recommendation.applyUrl
+
+      // Save to database
+      const { error } = await supabase
+        .from('user_conversations')
+        .update({
+          conversation_data: data,
+          recommended_card_name: recommendedCard,
+          recommendation_reason: `${reason}\n\nKey Benefits: ${benefits}`
+        })
+        .eq('user_email', userEmail)
+
+      if (error) {
+        console.error('Error saving recommendation:', error)
+      }
+
+      // TODO: Send email via Resend API (we'll add this later)
+      console.log('Email would be sent to:', userEmail)
+      console.log('Card:', recommendedCard)
+      console.log('Issuer:', issuer)
+      console.log('Reason:', reason)
+      console.log('Benefits:', benefits)
+      console.log('Apply URL:', applyUrl)
+
+      // Show final message and move to thank you
+      setMessages(prev => [...prev, { 
+        role: 'bot', 
+        text: `✅ Perfect! I&apos;ve analyzed your needs with AI and found the ideal credit card for you.\n\n📧 I&apos;ve sent a detailed recommendation with the card details and application link to ${userEmail}.\n\nPlease check your email (including spam folder) for the full recommendation!` 
+      }])
+
+      // Move to thank you screen after 2 seconds
+      setTimeout(() => {
+        setStep('thankyou')
+      }, 3000)
+    } catch (error) {
+      console.error('Error getting recommendation:', error)
+      
+      // Fallback to basic recommendation if API fails
+      setMessages(prev => [...prev, { 
+        role: 'bot', 
+        text: `I apologize, but I'm having trouble connecting right now. Please try again in a moment, or contact support if the issue persists.` 
+      }])
     }
-
-    // TODO: Send email via Resend API (we'll add this later)
-    console.log('Email would be sent to:', userEmail)
-    console.log('Card:', recommendedCard)
-    console.log('Reason:', reason)
-    console.log('Apply URL:', applyUrl)
-
-    // Show final message and move to thank you
-    setMessages(prev => [...prev, { 
-      role: 'bot', 
-      text: `✅ Perfect! I&apos;ve analyzed your needs and found the ideal credit card for you.\n\n📧 I&apos;ve sent a detailed recommendation with the card details and application link to ${userEmail}.\n\nPlease check your email (including spam folder) for the full recommendation!` 
-    }])
-
-    // Move to thank you screen after 2 seconds
-    setTimeout(() => {
-      setStep('thankyou')
-    }, 3000)
   }
 
   return (
@@ -305,7 +330,7 @@ export default function Home() {
             <div className="w-10 h-10 bg-blue-900 rounded-lg flex items-center justify-center">
               <span className="text-white text-xl font-bold">💳</span>
             </div>
-            <h1 className="text-2xl font-bold text-blue-900">Credit Card Advisor Info</h1>
+            <h1 className="text-2xl font-bold text-blue-900">Credit Card Advisor</h1>
           </div>
           <nav className="text-sm text-[#1565C0] font-medium">
             <button className="hover:text-teal-500 transition">About</button>
@@ -516,7 +541,7 @@ export default function Home() {
               </h2>
               <p className="text-lg text-[#1565C0] mb-6">
                 {exitReason === 'completed'
-                  ? `Thank you for using Credit Card Advisor Info, ${userName}!`
+                  ? `Thank you for using Credit Card Advisor, ${userName}!`
                   : `We appreciate your time, ${userName}!`}
               </p>
               {exitReason === 'completed' && (
@@ -545,7 +570,7 @@ export default function Home() {
       {/* Footer */}
       <footer className="relative text-center py-8 text-sm text-[#1565C0] border-t border-gray-200 mt-12">
         <p>
-          © 2025 Credit Card Advisor Info | Educational purposes only | Not financial advice
+          © 2025 Credit Card Advisor | Educational purposes only | Not financial advice
         </p>
       </footer>
     </div>
